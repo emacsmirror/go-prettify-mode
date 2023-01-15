@@ -91,7 +91,7 @@
               buffer beginning end)))
     (put-text-property
      0 (length str)
-     'face go-if-err-nil-face
+     'face 'go-if-err-nil-face
      str)
     (overlay-put overlay
                  'invisible
