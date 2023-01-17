@@ -57,6 +57,10 @@
  (defvar go-if-err-nil--overlays '()
    "Private local variable, overlays of the buffer."))
 
+(defconst go-if-err-nil--err-regexp
+  "\\(;\\|if\\) err != nil {"
+  "Constant, what is a `if err != nil' statement in Go code.")
+
 (defun go-if-err-nil--replace-line-in-overlay (line)
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
@@ -96,12 +100,10 @@
     overlay))
 
 (defun go-if-err-nil--make-overlay-at-point (buffer)
-  ;; TODO: if this overlay already exists at point, do nothing.
-  ;; TODO: in turn off, remove all overlays with the property for the buffer
   ;; TODO: add comments everywhere
   ;; TODO: add README and example go file
   (let* ((beginning (progn
-                      (search-backward-regexp ";\\|if") ; search to the beginning of the match
+                      (search-backward-regexp go-if-err-nil--err-regexp)
                       (point)))
          (end (progn
                 (end-of-line)
@@ -121,7 +123,7 @@
       (save-restriction
         (widen)
         (goto-char (point-min))
-        (while (search-forward-regexp "if.*err != nil {" nil t 1)
+        (while (search-forward-regexp go-if-err-nil--err-regexp nil t 1)
           (go-if-err-nil--make-overlay-at-point buffer))))))
 
 (defun go-if-err-nil-turn-off (buffer)
