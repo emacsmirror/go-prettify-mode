@@ -39,10 +39,10 @@
     ("logger\\." "λ")
     ("logger()\\." "λ")
     ("log\\." "λ")
-    ("can't " "c'")
-    ("cannot " "c'")
-    ("can not " "c'")
-    ("couldn't " "c'")
+    ("can't" "c'")
+    ("cannot" "c'")
+    ("can not" "c'")
+    ("couldn't" "c'")
     ("\"" ""))
   "Alist of pairs of regexps to their replaces for every line inside if err != nil code blocks."
   :type '(alist :key-type regexp :value-type string)
@@ -62,6 +62,7 @@
   "Constant, what is a `if err != nil' statement in Go code.")
 
 (defun go-if-err-nil--replace-line-in-overlay (line)
+  "Apply all regexp to replacements from alist to the line."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
                            (replace-regexp-in-string (first kv) (second kv) line))
@@ -76,6 +77,7 @@
               (string-empty-p replaced-line)) "; "))))
 
 (defun go-if-err-nil--string-after-overlay (buffer beginning end)
+  "Yields a line that should be displayed instead of `if err' statement."
   (let* ((lines-raw (buffer-substring-no-properties beginning end))
          (lines (string-lines lines-raw))
          (lines-replaced (mapcar #'go-if-err-nil--replace-line-in-overlay lines)))
@@ -84,6 +86,7 @@
      "; ")))
 
 (defun go-if-err-nil--make-overlay (buffer beginning end)
+  "Creates overlay with all properties between BEGINNING and END."
   (let ((overlay (make-overlay beginning end))
         (str (go-if-err-nil--string-after-overlay
               buffer beginning end)))
@@ -100,7 +103,7 @@
     overlay))
 
 (defun go-if-err-nil--make-overlay-at-point (buffer)
-  ;; TODO: add comments everywhere
+  "Creates an overlay and stores it for the future use."
   ;; TODO: add README and example go file
   (let* ((beginning (progn
                       (search-backward-regexp go-if-err-nil--err-regexp)
@@ -116,6 +119,7 @@
            go-if-err-nil--overlays))))
 
 (defun go-if-err-nil-turn-on (buffer)
+  "Searches for every `err != nil' in the buffer and creates overlays for them."
   (interactive (list (current-buffer)))
   (add-to-invisibility-spec 'go-if-err-nil--invisible-symbol)
   (save-excursion
@@ -127,6 +131,7 @@
           (go-if-err-nil--make-overlay-at-point buffer))))))
 
 (defun go-if-err-nil-turn-off (buffer)
+  "Removes old overlays from the buffer."
   (interactive (list (current-buffer)))
   (remove-from-invisibility-spec 'go-if-err-nil--invisible-symbol)
   (mapcar #'delete-overlay go-if-err-nil--overlays)
@@ -134,7 +139,14 @@
 
 ;;;###autoload
 (define-minor-mode go-if-err-nil-mode
-  "Minor mode that adds overlays to `if err != nil' statements."
+  "Minor mode that adds overlays to `if err != nil' statements.
+
+To turn it on in every Go buffer, add a hook:
+    (add-hook 'go-mode-hook '(lambda () (go-if-err-nil-mode 1)))
+
+To toggle it via a hotkey add this code:
+    (define-key go-mode-map (kbd \"C-c C-e\") #'go-if-err-nil-mode)
+   "
   :group 'go-if-err-nil
   (if go-if-err-nil-mode
       (go-if-err-nil-turn-on (current-buffer))
