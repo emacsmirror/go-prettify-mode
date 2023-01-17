@@ -53,15 +53,9 @@
   "Face of an overlay for `if err != nil' statement."
   :group 'go-if-err-nil)
 
-(defvar go-if-err-nil--overlays '()
-  "Private variable, alist of buffers to their overlays.")
-
-(defun go-if-err-nil--append-to-value-in-alist! (alist key elem)
-  (let ((kv (assoc key alist))
-        (new-alist (assoc-delete-all key alist)))
-    (if (eq kv nil)
-        (cons (list key elem) new-alist)
-      (cons (append kv (list elem)) new-alist))))
+(make-variable-buffer-local
+ (defvar go-if-err-nil--overlays '()
+   "Private local variable, overlays of the buffer."))
 
 (defun go-if-err-nil--replace-line-in-overlay (line)
   (let* ((replaced-line (cl-reduce
@@ -105,6 +99,7 @@
   ;; TODO: if this overlay already exists at point, do nothing.
   ;; TODO: in turn off, remove all overlays with the property for the buffer
   ;; TODO: add comments everywhere
+  ;; TODO: add README and example go file
   (let* ((beginning (progn
                       (search-backward-regexp ";\\|if") ; search to the beginning of the match
                       (point)))
@@ -114,10 +109,9 @@
                 (forward-sexp)
                 (point))))
     (setq go-if-err-nil--overlays
-          (go-if-err-nil--append-to-value-in-alist!
-           go-if-err-nil--overlays
-           buffer
-           (go-if-err-nil--make-overlay buffer beginning end)))))
+          (cons
+           (go-if-err-nil--make-overlay buffer beginning end)
+           go-if-err-nil--overlays))))
 
 (defun go-if-err-nil-turn-on (buffer)
   (interactive (list (current-buffer)))
@@ -133,25 +127,16 @@
 (defun go-if-err-nil-turn-off (buffer)
   (interactive (list (current-buffer)))
   (remove-from-invisibility-spec 'go-if-err-nil--invisible-symbol)
-  (mapcar
-   #'delete-overlay
-   (cdr (assoc buffer go-if-err-nil--overlays)))
-  (setq go-if-err-nil--overlays
-        (assoc-delete-all buffer go-if-err-nil--overlays)))
+  (mapcar #'delete-overlay go-if-err-nil--overlays)
+  (setq go-if-err-nil--overlays nil))
 
 ;;;###autoload
 (define-minor-mode go-if-err-nil-mode
   "Minor mode that adds overlays to `if err != nil' statements."
-  :global t
+  :group 'go-if-err-nil
   (if go-if-err-nil-mode
       (go-if-err-nil-turn-on (current-buffer))
     (go-if-err-nil-turn-off (current-buffer))))
-
-;;;###autoload
-(define-global-minor-mode
-  global-go-if-err-nil-mode
-  go-if-err-nil-mode
-  (lambda () (go-if-err-nil-mode 1)))
 
 (provide 'go-if-err-nil)
 
