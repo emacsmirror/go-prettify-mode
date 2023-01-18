@@ -32,7 +32,8 @@
 (defcustom go-if-err-nil-regexp-alist
   '(("^[ \t\n\r]*" "")
     ("if err != nil " "iferr: ")
-    ("err != nil" "err: ")
+    ("err != nil " "err: ")
+    ("!ok " "!ok: ")
     ("{\\|}" "")
     ("return" "↵")
     ("fmt\\.Error[f]" "ϕ")
@@ -48,6 +49,12 @@
   :type '(alist :key-type regexp :value-type string)
   :group 'go-if-err-nil)
 
+(defcustom go-if-err-nil--err-regexp
+  "\\(;\\|if\\) \\(err != nil\\|!ok\\) {"
+  "A variable of what regexp should be hidden in Go code."
+  :type 'regexp
+  :group 'go-if-err-nil)
+
 (defface go-if-err-nil-face
   '((t :inherit font-lock-comment-face))
   "Face of an overlay for `if err != nil' statement."
@@ -56,10 +63,6 @@
 (make-variable-buffer-local
  (defvar go-if-err-nil--overlays '()
    "Private local variable, overlays of the buffer."))
-
-(defconst go-if-err-nil--err-regexp
-  "\\(;\\|if\\) err != nil {"
-  "Constant, what is a `if err != nil' statement in Go code.")
 
 (defun go-if-err-nil--replace-line-in-overlay (line)
   "Apply all regexp to replacements from alist to the line."
@@ -74,6 +77,7 @@
      (when (length> replaced-line 27) "...")
      (unless (or
               (string-match-p "err != nil" line)
+              (string-match-p "!ok" line)
               (string-empty-p replaced-line)) "; "))))
 
 (defun go-if-err-nil--string-after-overlay (buffer beginning end)
@@ -104,7 +108,6 @@
 
 (defun go-if-err-nil--make-overlay-at-point (buffer)
   "Creates an overlay and stores it for the future use."
-  ;; TODO: add README and example go file
   (let* ((beginning (progn
                       (search-backward-regexp go-if-err-nil--err-regexp)
                       (point)))
