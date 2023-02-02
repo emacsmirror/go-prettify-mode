@@ -36,7 +36,7 @@
 
 (defcustom go-prettify-feature-list
   '(if-err-nil
-    ;; 1-code-block
+    1-code-block
     range
     ;; lambda-func
     )
@@ -66,10 +66,13 @@
      replace-to-str)
     (overlay-put overlay
                  'invisible
-                 go-if-err-nil--invisible-symbol)
+                 go-prettify--invisible-symbol)
     (overlay-put overlay
                  'after-string
                  replace-to-str)
+    (overlay-put overlay 'evaporate t)
+    ;; (overlay-put overlay 'isearch-open-invisible-temporary t)
+    ;; (overlay-put overlay 'isearch-open-invisible t)
     overlay))
 
 (defun go-prettify--get-or-make-overlay (buffer beginning end str-replace-to)
@@ -121,9 +124,9 @@
                            (replace-regexp-in-string (first kv) (second kv) line))
                          go-if-err-nil-regexp-alist
                          :initial-value line))
-         (shorter-line (string-limit replaced-line 27)))
+         (shorten-line (string-limit replaced-line 27)))
     (concat
-     shorter-line
+     shorten-line
      (when (length> replaced-line 27) "...")
      (unless (or
               (string-match-p "err != nil" line)
@@ -163,7 +166,7 @@
 ;; Replace `:= range' to just `in'
 ;;
 
-(defcustom go-range--err-regexp
+(defcustom go-range--regexp
   ":= range"
   ""
   :type 'regexp
@@ -173,7 +176,7 @@
   ""
   (let* ((end (point))
          (beginning (progn
-                      (search-backward-regexp go-range--err-regexp)
+                      (search-backward-regexp go-range--regexp)
                       (point))))
     (end-of-line)
     (setq go-prettify--overlays
@@ -181,6 +184,75 @@
            (go-prettify--get-or-make-overlay
             buffer beginning end "in")
            go-prettify--overlays))))
+
+
+;;
+;; Hide all blocks of code with only 1 statement
+;;
+
+(defcustom go-simple-block--regexp
+  "[^\n]* {\n[^\n{}]*\n[\t ]+}"
+  "A variable of what regexp should be hidden in Go code."
+  :type 'regexp
+  :group 'go-prettify-mode)
+
+(defcustom go-simple-block-regexp-alist
+  '((" {" ": ")
+    ("}" "")
+    ("^[ \t\n\r]*" "")
+    ("return" "↵")
+    ("fmt\\.Error[f]" "ϕ")
+    ("logger\\." "λ")
+    ("logger()\\." "λ")
+    ("log\\." "λ")
+    ("can't" "c'")
+    ("cannot" "c'")
+    ("can not" "c'")
+    ("couldn't" "c'")
+    ("\"" ""))
+  "Alist of pairs of regexps to their replaces for every line inside if err != nil code blocks."
+  :type '(alist :key-type regexp :value-type string)
+  :group 'go-prettify-mode)
+
+(defun go-simple-block--replace-line-in-overlay (line)
+  "Apply all regexp to replacements from alist to the line."
+  (let* ((replaced-line (cl-reduce
+                         (lambda (line kv)
+                           (replace-regexp-in-string (first kv) (second kv) line))
+                         go-simple-block-regexp-alist
+                         :initial-value line))
+         (shorten-line (string-limit replaced-line 70)))
+    (concat
+     shorten-line
+     (when (length> replaced-line 70) "..."))))
+
+(defun go-simple-block--string-after-overlay (buffer beginning end)
+  "Yields a line that should be displayed instead of `if err' statement."
+  (let* ((lines-raw (buffer-substring-no-properties beginning end))
+         (lines (string-lines lines-raw))
+         (lines-replaced (mapcar #'go-simple-block--replace-line-in-overlay lines)))
+    (string-join lines-replaced)))
+
+(defun go-simple-block--make-overlay-at-point (buffer)
+  "Creates an overlay and stores it for the future use."
+  (let* ((beginning (progn
+                      (search-backward-regexp go-simple-block--regexp)
+                      (end-of-line)
+                      (backward-char 2) ;; open { and space before it
+                      (point)))
+         (line-start (line-beginning-position))
+         (line-end (line-end-position))
+         (line-length (- line-end line-start))
+         (end (progn (forward-sexp)
+                     (point))))
+    (when (< line-length 50)
+      (setq go-prettify--overlays
+            (cons
+             (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
+              buffer beginning end
+              (go-simple-block--string-after-overlay
+               buffer beginning end))
+             go-prettify--overlays)))))
 
 
 ;;
@@ -193,10 +265,10 @@
                   go-if-err-nil--err-regexp
                   #'go-if-err-nil--make-overlay-at-point))
     ('1-code-block (list
-                    nil
-                    nil))
+                    go-simple-block--regexp
+                    #'go-simple-block--make-overlay-at-point))
     ('range (list
-             go-range--err-regexp
+             go-range--regexp
              #'go-range--make-overlay-at-point))
     ('lambda-func (list
                    nil
@@ -213,7 +285,7 @@
 (defun go-prettify-turn-on (buffer)
   "Searches for every `err != nil' in the buffer and creates overlays for them."
   (interactive (list (current-buffer)))
-  (add-to-invisibility-spec go-if-err-nil--invisible-symbol)
+  (add-to-invisibility-spec go-prettify--invisible-symbol)
   (save-excursion
     (with-current-buffer buffer
       (save-restriction
