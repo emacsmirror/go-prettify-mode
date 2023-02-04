@@ -38,8 +38,7 @@
   '(if-err-nil
     1-code-block
     range
-    ;; lambda-func
-    )
+    lambda-func)
   "What features turn on in the package"
   :type '(list string)
   :group 'go-prettify-mode)
@@ -256,6 +255,60 @@
 
 
 ;;
+;; lambdas
+;;
+
+
+(defcustom go-lambda--regexp
+  "[^\n]+func("
+  "A variable of what regexp should be hidden in Go code."
+  :type 'regexp
+  :group 'go-prettify-mode)
+
+(defun go-lambda--string-after-overlay (buffer beginning end)
+  "Yields a line that should be displayed instead of `if err' statement."
+  (let* ((args-beginning (progn
+                           (goto-char beginning)
+                           (search-forward "(")
+                           (point)))
+         (args-end (progn
+                     (backward-char)
+                     (forward-sexp)
+                     (point)))
+         (args (buffer-substring-no-properties args-beginning args-end))
+         (args-refined (replace-regexp-in-string "\\([^ \t\n,\)]+\\) \\([^ \t\n,\)]+\\)\\([,\)]\\)" "\\1\\3" args))
+         (args-lines (string-lines args-refined))
+         (args-lines-trimmed (cl-map 'list #'string-trim args-lines))
+         (args-joined (string-join args-lines-trimmed " "))
+
+         (returns (progn
+                    (forward-char)
+                    (message (buffer-substring-no-properties (point) (+ 1 (point))))
+                    (if (string= "{" (buffer-substring-no-properties (point) (+ 1 (point))))
+                        ""
+                      "(...) ")))
+         )
+    (concat "func(" args-joined "" " " returns)))
+
+(defun go-lambda--make-overlay-at-point (buffer)
+  "Creates an overlay and stores it for the future use."
+  (let* ((beginning (progn
+                      (search-backward-regexp go-lambda--regexp)
+                      (forward-char)
+                      (point)))
+         (end (progn (search-forward "{")
+                     (backward-char)
+                     (point))))
+    (setq go-prettify--overlays
+          (cons
+           (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
+            buffer beginning end
+            (go-lambda--string-after-overlay
+             buffer beginning end))
+           go-prettify--overlays))))
+
+
+;;
 ;; Minor mode
 ;;
 
@@ -271,8 +324,8 @@
              go-range--regexp
              #'go-range--make-overlay-at-point))
     ('lambda-func (list
-                   nil
-                   nil))
+                   go-lambda--regexp
+                   #'go-lambda--make-overlay-at-point))
     (_ (error "cannot find this feature %s" feature))))
 
 (defun go-prettify-hide-feature (regexp overlayfn buffer)
