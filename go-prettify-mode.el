@@ -35,10 +35,10 @@
   :group 'convenience)
 
 (defcustom go-prettify-feature-list
-  '(if-err-nil
-    1-code-block
+  '(lambda-func
     range
-    lambda-func)
+    if-err-nil
+    1-code-block)
   "What features turn on in the package"
   :type '(list string)
   :group 'go-prettify-mode)
@@ -167,12 +167,12 @@
 
 (defcustom go-range--regexp
   ":= range"
-  ""
+  "Regexp for finding and hiding `:= range' code."
   :type 'regexp
   :group 'go-prettify-mode)
 
 (defun go-range--make-overlay-at-point (buffer)
-  ""
+  "Find `:= range' and replace it to just `in' like in Python and other languages."
   (let* ((end (point))
          (beginning (progn
                       (search-backward-regexp go-range--regexp)
@@ -191,7 +191,7 @@
 
 (defcustom go-simple-block--regexp
   "[^\n]* {\n[^\n{}]*\n[\t ]+}"
-  "A variable of what regexp should be hidden in Go code."
+  "A variable of what regexp represents simple blocks of code (i.e. consists of 1 expression)."
   :type 'regexp
   :group 'go-prettify-mode)
 
@@ -209,12 +209,13 @@
     ("can not" "c'")
     ("couldn't" "c'")
     ("\"" ""))
-  "Alist of pairs of regexps to their replaces for every line inside if err != nil code blocks."
+  "Alist of pairs of regexps to their replaces for the line in a code block."
   :type '(alist :key-type regexp :value-type string)
   :group 'go-prettify-mode)
 
 (defun go-simple-block--replace-line-in-overlay (line)
-  "Apply all regexp to replacements from alist to the line."
+  "Apply all regexp to replacements from alist to the line.
+   Shorten it if the first line is too long."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
                            (replace-regexp-in-string (first kv) (second kv) line))
@@ -226,14 +227,15 @@
      (when (length> replaced-line 70) "..."))))
 
 (defun go-simple-block--string-after-overlay (buffer beginning end)
-  "Yields a line that should be displayed instead of `if err' statement."
+  "Yields a line that should be displayed instead of a simple block."
   (let* ((lines-raw (buffer-substring-no-properties beginning end))
          (lines (string-lines lines-raw))
          (lines-replaced (mapcar #'go-simple-block--replace-line-in-overlay lines)))
     (string-join lines-replaced)))
 
 (defun go-simple-block--make-overlay-at-point (buffer)
-  "Creates an overlay and stores it for the future use."
+  "Creates an overlay and stores it for the future use.
+   Do not hide it if the first line is too long."
   (let* ((beginning (progn
                       (search-backward-regexp go-simple-block--regexp)
                       (end-of-line)
@@ -260,13 +262,13 @@
 
 
 (defcustom go-lambda--regexp
-  "[^\n]+func("
-  "A variable of what regexp should be hidden in Go code."
+  "[^\n]*[^t]func("
+  "A variable of regexp that represents a lambda (anonymous function) in Go code."
   :type 'regexp
   :group 'go-prettify-mode)
 
 (defun go-lambda--string-after-overlay (buffer beginning end)
-  "Yields a line that should be displayed instead of `if err' statement."
+  "Yields a line that hides types in anonymous functions."
   (let* ((args-beginning (progn
                            (goto-char beginning)
                            (search-forward "(")
@@ -313,6 +315,7 @@
 ;;
 
 (defun go-prettify-regexp+overlayfn (feature)
+  "Returns a regexp and a func that should be called if this regexp is found (by feature)."
   (pcase feature
     ('if-err-nil (list
                   go-if-err-nil--err-regexp
@@ -328,7 +331,8 @@
                    #'go-lambda--make-overlay-at-point))
     (_ (error "cannot find this feature %s" feature))))
 
-(defun go-prettify-hide-feature (regexp overlayfn buffer)
+(defun go-prettify-hide-feature (buffer regexp overlayfn)
+  "Find every match of the regexp and hide it with overlayfn."
   (goto-char (point-min))
   (while (search-forward-regexp regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
@@ -336,7 +340,7 @@
       (funcall overlayfn buffer))))
 
 (defun go-prettify-turn-on (buffer)
-  "Searches for every `err != nil' in the buffer and creates overlays for them."
+  "Searches for every selected feature in the buffer and creates overlays for them."
   (interactive (list (current-buffer)))
   (add-to-invisibility-spec go-prettify--invisible-symbol)
   (save-excursion
@@ -349,7 +353,7 @@
            (let* ((regexp+overlayfn (go-prettify-regexp+overlayfn feature))
                   (regexp (cl-first regexp+overlayfn))
                   (overlayfn (cl-second regexp+overlayfn)))
-             (go-prettify-hide-feature regexp overlayfn buffer)))
+             (go-prettify-hide-feature buffer overlayfn regexp)))
          go-prettify-feature-list)))))
 
 (defun go-prettify-turn-off (buffer)
@@ -361,13 +365,13 @@
 
 ;;;###autoload
 (define-minor-mode go-prettify-mode
-  "Minor mode that adds overlays to `if err != nil' statements.
+  "Minor mode that adds overlays to `if err != nil' statements and other features.
 
 To turn it on in every Go buffer, add a hook:
-    (add-hook 'go-mode-hook '(lambda () (go-if-err-nil-mode 1)))
+    (add-hook 'go-mode-hook '(lambda () (go-prettify-mode 1)))
 
 To toggle it via a hotkey add this code:
-    (define-key go-mode-map (kbd \"C-c C-e\") #'go-if-err-nil-mode)
+    (define-key go-mode-map (kbd \"C-c C-e\") #'go-prettify-mode)
    "
   :group 'go-prettify-mode
   (if go-prettify-mode
