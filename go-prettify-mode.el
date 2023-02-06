@@ -353,7 +353,7 @@
            (let* ((regexp+overlayfn (go-prettify-regexp+overlayfn feature))
                   (regexp (cl-first regexp+overlayfn))
                   (overlayfn (cl-second regexp+overlayfn)))
-             (go-prettify-hide-feature buffer overlayfn regexp)))
+             (go-prettify-hide-feature buffer regexp overlayfn)))
          go-prettify-feature-list)))))
 
 (defun go-prettify-turn-off (buffer)
