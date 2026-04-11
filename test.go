@@ -14,6 +14,12 @@ var (
 	b = []uint{}
 )
 
+// don't wrap func here
+var c = http.MethodFunc(http.MethodPost, "path", fn)
+
+// and here
+var d = http.MethodFunc(http.MethodPost, "path/{template}", fn)
+
 type VeryVeryLongBusinessLogicTypeThatsNotVeryInformative uint
 
 func testFunc() error {
@@ -22,7 +28,6 @@ func testFunc() error {
 		return fmt.Errorf("just err: %w", err)
 	}
 
-	err = fn()
 	if err != nil {
 		log.Print("multiple lines")
 		return fmt.Errorf("does not merge in 1 line")
@@ -44,22 +49,15 @@ func testFunc() error {
 	// Types of arguments hide in anonymous functions.
 	sort.Slice([]uint{4, 2}, func(i, j VeryVeryLongBusinessLogicTypeThatsNotVeryInformative) bool { return i < j })
 
-	// `:= range` replaces to just `in`. Simple blocks are also hide.
+	// `:= range` replaces to just `in`. Simple blocks are also hidden.
 	for _, i := range []uint{4, 2} {
 		b = append(b, i)
 	}
 
-	// don't wrap func here
-	http.MethodFunc(http.MethodPost, "path", fn)
-
-	// and here
-	http.MethodFunc(http.MethodPost, "path/{template}", fn)
-
-	// hiding if/else looks ugly, therefore we don't wrap them
 	if true {
-		fmt.Println(5)
+		fmt.Println("don't hide if/else blocks")
 	} else {
-		fmt.Println(6)
+		fmt.Println("otherwise it looks ugly")
 	}
 
 	return nil

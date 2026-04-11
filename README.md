@@ -46,6 +46,7 @@ How the configuration is looked in my `init.el` with `use-package`:
 - [x] fix 2 cases in test.go
   - [x] if/else
   - [x] method func
+- MELPA
 - [ ] test case with structs 
 - [ ] change : to { } like in Goland
 - [ ] commenting out doesn't work well (should be added a webhook that turns off and then turns on the feature)

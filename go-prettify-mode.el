@@ -1,8 +1,11 @@
-;;; go-prettify-mode.el --- Hide `if err != nil' and other statements in Go in an informative way. -*- lexical-binding: t -*-
+;;; go-prettify-mode.el --- Hide `if err != nil' and prettify them -*- lexical-binding: t -*-
+
+;;; Commentary:
 
 ;; Author: Gleb Zakharov <snyssfx@posteo.net>
 ;; Version: 1.0
 ;; Keywords: languages go tools
+;; Package-Requires: ((Emacs "28.1"))
 ;; URL: https://codeberg.org/snyssfx/go-prettify-mode.el
 
 ;;; Copyright © 2026 Gleb Zakharov <snyssfx@posteo.net>
@@ -19,8 +22,6 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-;;; Commentary:
 
 ;;; Code:
 
@@ -41,7 +42,7 @@
     range
     if-err-nil
     1-code-block)
-  "What features turn on in the package"
+  "What features turn on in the package."
   :type '(list string)
   :group 'go-prettify-mode)
 
@@ -58,8 +59,9 @@
   'go-prettify--invisible-symbol
   "Symbol to add in invisible property of overlays.")
 
-(defun go-prettify--make-overlay (buffer beginning end replace-to-str)
-  "Creates overlay with all properties between BEGINNING and END."
+(defun go-prettify--make-overlay (beginning end replace-to-str)
+  "Create overlay with all properties between BEGINNING and END.
+Transforms it to the string REPLACE-TO-STR."
   (let ((overlay (make-overlay beginning end)))
     (put-text-property
      0 (length replace-to-str)
@@ -76,7 +78,10 @@
     ;; (overlay-put overlay 'isearch-open-invisible t)
     overlay))
 
-(defun go-prettify--get-or-make-overlay (buffer beginning end str-replace-to)
+(defun go-prettify--get-or-make-overlay (beginning end replace-to-str)
+  "If the overlay exists do nothing.
+Else makes an overlay from BEGINNING to END,
+with a text REPLACE-TO-STR and store it to the overlay dict"
   (let* ((ov
           (cl-find-if
            (lambda (ov) (eq
@@ -85,7 +90,7 @@
            (overlays-at beginning))))
     (or ov
         (go-prettify--make-overlay
-         buffer beginning end str-replace-to))))
+         beginning end replace-to-str))))
 
 
 ;;
@@ -126,12 +131,12 @@
     ("can not" "c'")
     ("couldn't" "c'")
     ("\"" ""))
-  "Alist of pairs of regexps to their replaces for every line inside if err != nil code blocks."
+  "Alist of pairs of regexps to their replaces for every line inside the block."
   :type '(alist :key-type regexp :value-type string)
   :group 'go-prettify-group)
 
 (defun go-prettify--if-err-nil-transform-line (line)
-  "Apply all regexp to replacements from alist to the line."
+  "Apply all regexp to replacements from alist to the LINE."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
                            (replace-regexp-in-string (first kv) (second kv) line))
@@ -146,8 +151,9 @@
               (string-match-p "!ok" line)
               (string-empty-p replaced-line)) "; "))))
 
-(defun go-prettify--if-err-nil-transform-block (buffer beginning end)
-  "Yields a line that should be displayed instead of `if err' statement."
+(defun go-prettify--if-err-nil-transform-block (beginning end)
+  "Yields a line that should be displayed instead of `if err' statement.
+The statement is from BEGINNING to END."
   (let* ((lines-raw (buffer-substring-no-properties beginning end))
          (lines (string-lines lines-raw))
          (lines-replaced (mapcar #'go-prettify--if-err-nil-transform-line lines)))
@@ -155,8 +161,8 @@
      (string-join lines-replaced)
      "; ")))
 
-(defun go-prettify--if-err-nil-overlayfn (buffer)
-  "Creates an overlay and stores it for the future use."
+(defun go-prettify--if-err-nil-overlayfn ()
+  "Create an overlay and store it for the future use."
   (let* ((beginning (progn
                       (search-backward-regexp go-prettify--if-err-nil-regexp)
                       (point)))
@@ -168,18 +174,17 @@
     (setq go-prettify--overlays
           (cons
            (go-prettify--get-or-make-overlay
-            buffer
             beginning end
-            (go-prettify--if-err-nil-transform-block
-             buffer beginning end))
+            (go-prettify--if-err-nil-transform-block beginning end))
            go-prettify--overlays))))
 
-(defun go-prettify--if-err-nil (buffer)
+(defun go-prettify--if-err-nil ()
+  "Hides if err nil blocks."
   (goto-char (point-min))
   (while (search-forward-regexp go-prettify--if-err-nil-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
-      (go-prettify--if-err-nil-overlayfn buffer))))
+      (go-prettify--if-err-nil-overlayfn))))
 
 
 ;;
@@ -192,7 +197,7 @@
   :type 'regexp
   :group 'go-prettify-group)
 
-(defun go-prettify--range-overlayfn (buffer)
+(defun go-prettify--range-overlayfn ()
   "Find `:= range' and replace it to just `in' like in Python and other languages."
   (let* ((end (point))
          (beginning (progn
@@ -202,15 +207,16 @@
     (setq go-prettify--overlays
           (cons
            (go-prettify--get-or-make-overlay
-            buffer beginning end "in")
+            beginning end "in")
            go-prettify--overlays))))
 
-(defun go-prettify--range (buffer)
+(defun go-prettify--range ()
+  "Hide := range expression."
   (goto-char (point-min))
   (while (search-forward-regexp go-prettify--range-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
-      (go-prettify--range-overlayfn buffer))))
+      (go-prettify--range-overlayfn))))
 
 
 ;;
@@ -225,7 +231,7 @@
       (+ (any "\t "))
       "}")
 
-  "A variable of what regexp represents simple blocks of code (i.e. consists of 1 expression)."
+  "Regexp that represents simple blocks of code (i.e. consists of 1 expression)."
   :type 'regexp
   :group 'go-prettify-group)
 
@@ -251,8 +257,8 @@
   :group 'go-prettify-group)
 
 (defun go-prettify--simple-block-transform-line (line)
-  "Apply all regexp to replacements from alist to the line.
-   Shorten it if the first line is too long."
+  "Apply all regexp to replacements from alist to the LINE.
+Shorten it if the first line is too long."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
                            (replace-regexp-in-string (first kv) (second kv) line))
@@ -263,24 +269,29 @@
      shorten-line
      (when (length> replaced-line 70) "..."))))
 
-(defun go-prettify--simple-block-transform-block (buffer beginning end)
-  "Yields a line that should be displayed instead of a simple block."
+(defun go-prettify--simple-block-transform-block (beginning end)
+  "Yield a line that should be displayed instead of a simple block.
+From BEGINNING to END."
   (let* ((lines-raw (buffer-substring-no-properties beginning end))
          (lines (string-lines lines-raw))
          (lines-replaced (mapcar #'go-prettify--simple-block-transform-line lines)))
     (string-join lines-replaced)))
 
-(defun go-prettify--simple-block-else-before-p (buffer)
+(defun go-prettify--simple-block-else-before-p ()
+  "Check if there is else word before the braces.
+The point should be on the open brace {."
   (save-excursion
     (search-forward "else" (line-beginning-position) t -1)))
 
-(defun go-prettify--simple-block-else-after-p (buffer)
+(defun go-prettify--simple-block-else-after-p ()
+  "Check if there is else word after the braces.
+The point should be on the closed brace {."
   (save-excursion
     (search-forward "else" (line-end-position) t 1)))
 
-(defun go-prettify--simple-block-overlayfn (buffer)
-  "Creates an overlay and stores it for the future use.
-   Do not hide it if the first line is too long."
+(defun go-prettify--simple-block-overlayfn ()
+  "Create an overlay and store it for the future use.
+Do not hide it if the first line is too long."
   (let* ((beginning (progn
                       (search-backward-regexp go-prettify--simple-block-regexp)
                       (end-of-line)
@@ -288,11 +299,11 @@
                       (point)))
          (line-length (- (line-end-position) (line-beginning-position)))
 
-         (else-before-p (go-prettify--simple-block-else-before-p buffer))
+         (else-before-p (go-prettify--simple-block-else-before-p))
 
          (end (progn (forward-sexp)
                      (point)))
-         (else-after-p (go-prettify--simple-block-else-after-p buffer)))
+         (else-after-p (go-prettify--simple-block-else-after-p)))
 
     (when (and (< line-length 50)
                (not else-before-p)
@@ -300,17 +311,17 @@
       (setq go-prettify--overlays
             (cons
              (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
-              buffer beginning end
-              (go-prettify--simple-block-transform-block
-               buffer beginning end))
+              beginning end
+              (go-prettify--simple-block-transform-block beginning end))
              go-prettify--overlays)))))
 
-(defun go-prettify--simple-block (buffer)
+(defun go-prettify--simple-block ()
+  "Hide 1-statement blocks."
   (goto-char (point-min))
   (while (search-forward-regexp go-prettify--simple-block-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
-      (go-prettify--simple-block-overlayfn buffer))))
+      (go-prettify--simple-block-overlayfn))))
 
 
 ;;
@@ -324,8 +335,9 @@
   :type 'regexp
   :group 'go-prettify-group)
 
-(defun go-prettify--lambda-transform-args (buffer beginning end)
-  "Yields a line that hides types in anonymous functions."
+(defun go-prettify--lambda-transform-args (beginning)
+  "Yield a line that hides types in anonymous functions.
+The function begins at BEGINNING."
   (let* ((args-beginning (progn
                            (goto-char beginning)
                            (search-forward "(")
@@ -345,8 +357,8 @@
          (args-joined (string-join args-lines-trimmed " ")))
     (concat "fn(" args-joined "" " ")))
 
-(defun go-prettify--lambda-overlayfn (buffer)
-  "Creates an overlay and stores it for the future use."
+(defun go-prettify--lambda-overlayfn ()
+  "Create an overlay and store it for the future use."
   (let* ((beginning (progn
                       (search-backward-regexp go-prettify--lambda-regexp)
                       (forward-char)
@@ -357,17 +369,17 @@
     (setq go-prettify--overlays
           (cons
            (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
-            buffer beginning end
-            (go-prettify--lambda-transform-args
-             buffer beginning end))
+            beginning end
+            (go-prettify--lambda-transform-args beginning))
            go-prettify--overlays))))
 
-(defun go-prettify--lambda (buffer)
+(defun go-prettify--lambda ()
+  "Hide arguments of anonymous functions."
   (goto-char (point-min))
   (while (search-forward-regexp go-prettify--lambda-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
-      (go-prettify--lambda-overlayfn buffer))))
+      (go-prettify--lambda-overlayfn))))
 
 
 ;;
@@ -375,7 +387,7 @@
 ;;
 
 (defun go-prettify-turn-on (buffer)
-  "Searches for every selected feature in the buffer and creates overlays for them."
+  "Search for every selected feature in the BUFFER and create overlays for them."
   (interactive (list (current-buffer)))
   (add-to-invisibility-spec go-prettify--invisible-symbol)
   (save-excursion
@@ -384,22 +396,22 @@
         (widen)
 
         (when (member 'lambda-func go-prettify-feature-list)
-          (go-prettify--lambda buffer))
+          (go-prettify--lambda))
 
         (when (member 'if-err-nil go-prettify-feature-list)
-          (go-prettify--if-err-nil buffer))
+          (go-prettify--if-err-nil))
 
         (when (member '1-code-block go-prettify-feature-list)
-          (go-prettify--simple-block buffer))
+          (go-prettify--simple-block))
 
         (when (member 'range go-prettify-feature-list)
-          (go-prettify--range buffer))))))
+          (go-prettify--range))))))
 
-(defun go-prettify-turn-off (buffer)
-  "Removes old overlays from the buffer."
-  (interactive (list (current-buffer)))
+(defun go-prettify-turn-off ()
+  "Remove old overlays from the buffer."
+  (interactive)
   (remove-from-invisibility-spec go-prettify--invisible-symbol)
-  (mapcar #'delete-overlay go-prettify--overlays)
+  (mapc #'delete-overlay go-prettify--overlays)
   (setq go-prettify--overlays nil))
 
 ;;;###autoload
@@ -407,16 +419,15 @@
   "Minor mode that adds overlays to `if err != nil' statements and other features.
 
 To turn it on in every Go buffer, add a hook:
-    (add-hook 'go-mode-hook '(lambda () (go-prettify-mode 1)))
+    (add-hook \='go-mode-hook \='(lambda () (go-prettify-mode 1)))
 
 To toggle it via a hotkey add this code:
-    (define-key go-mode-map (kbd \"C-c C-e\") #'go-prettify-mode)
-   "
+    (define-key go-mode-map (kbd \"C-c C-e\") #\='go-prettify-mode)"
   :group 'go-prettify-group
   (if go-prettify-mode
       (go-prettify-turn-on (current-buffer))
-    (go-prettify-turn-off (current-buffer))))
+    (go-prettify-turn-off)))
 
-(provide 'go-prettify)
+(provide 'go-prettify-mode)
 
 ;;; go-prettify-mode.el ends here
