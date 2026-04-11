@@ -38,3 +38,11 @@ How the configuration is looked in my `init.el` with `use-package`:
   (go-mode . (lambda () (go-prettify-mode 1))))
 ```
 
+## TODO
+- [x] change regexps to rx elisp package
+- [x] change regexps to their own functions that return start point
+- [x] make its own namespace (go-prettify)
+- [x] codeberg
+- [ ] fix 2 cases in test.go
+- [ ] change : to { } like in Goland
+- [ ] commenting out doesn't work well (should be added a webhook that turns off and then turns on the feature)
