@@ -31,9 +31,9 @@
 
 (require 'rx)
 
-(defgroup go-prettify-mode nil
+(defgroup go-prettify-group nil
   "Hide `if err != nil' and other statements in Go programs."
-  :prefix "go-prettify-mode-"
+  :prefix "go-prettify-"
   :group 'convenience)
 
 (defcustom go-prettify-feature-list
@@ -105,7 +105,7 @@
 
   "A variable of what regexp should be hidden in Go code."
   :type 'regexp
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defcustom go-prettify--if-err-nil-regexp-alist
   '(("^[ \t\n\r]*" "")
@@ -128,7 +128,7 @@
     ("\"" ""))
   "Alist of pairs of regexps to their replaces for every line inside if err != nil code blocks."
   :type '(alist :key-type regexp :value-type string)
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defun go-prettify--if-err-nil-transform-line (line)
   "Apply all regexp to replacements from alist to the line."
@@ -190,7 +190,7 @@
   ":= range"
   "Regexp for finding and hiding `:= range' code."
   :type 'regexp
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defun go-prettify--range-overlayfn (buffer)
   "Find `:= range' and replace it to just `in' like in Python and other languages."
@@ -227,7 +227,7 @@
 
   "A variable of what regexp represents simple blocks of code (i.e. consists of 1 expression)."
   :type 'regexp
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defcustom go-prettify-simple-block-regexp-alist
   '((" {" ": ")
@@ -248,7 +248,7 @@
     ("\"" ""))
   "Alist of pairs of regexps to their replaces for the line in a code block."
   :type '(alist :key-type regexp :value-type string)
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defun go-prettify--simple-block-transform-line (line)
   "Apply all regexp to replacements from alist to the line.
@@ -270,6 +270,14 @@
          (lines-replaced (mapcar #'go-prettify--simple-block-transform-line lines)))
     (string-join lines-replaced)))
 
+(defun go-prettify--simple-block-else-before-p (buffer)
+  (save-excursion
+    (search-forward "else" (line-beginning-position) t -1)))
+
+(defun go-prettify--simple-block-else-after-p (buffer)
+  (save-excursion
+    (search-forward "else" (line-end-position) t 1)))
+
 (defun go-prettify--simple-block-overlayfn (buffer)
   "Creates an overlay and stores it for the future use.
    Do not hide it if the first line is too long."
@@ -278,12 +286,17 @@
                       (end-of-line)
                       (backward-char 2) ;; open { and space before it
                       (point)))
-         (line-start (line-beginning-position))
-         (line-end (line-end-position))
-         (line-length (- line-end line-start))
+         (line-length (- (line-end-position) (line-beginning-position)))
+
+         (else-before-p (go-prettify--simple-block-else-before-p buffer))
+
          (end (progn (forward-sexp)
-                     (point))))
-    (when (< line-length 50)
+                     (point)))
+         (else-after-p (go-prettify--simple-block-else-after-p buffer)))
+
+    (when (and (< line-length 50)
+               (not else-before-p)
+               (not else-after-p))
       (setq go-prettify--overlays
             (cons
              (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
@@ -305,12 +318,11 @@
 ;;
 
 (defcustom go-prettify--lambda-regexp
-  (rx (* not-newline)
-      (not "t")
+  (rx (any " \t")
       "func(")
   "A variable of regexp that represents a lambda (anonymous function) in Go code."
   :type 'regexp
-  :group 'go-prettify-mode)
+  :group 'go-prettify-group)
 
 (defun go-prettify--lambda-transform-args (buffer beginning end)
   "Yields a line that hides types in anonymous functions."
@@ -400,7 +412,7 @@ To turn it on in every Go buffer, add a hook:
 To toggle it via a hotkey add this code:
     (define-key go-mode-map (kbd \"C-c C-e\") #'go-prettify-mode)
    "
-  :group 'go-prettify-mode
+  :group 'go-prettify-group
   (if go-prettify-mode
       (go-prettify-turn-on (current-buffer))
     (go-prettify-turn-off (current-buffer))))

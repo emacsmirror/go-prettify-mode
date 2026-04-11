@@ -52,6 +52,9 @@ func testFunc() error {
 	// don't wrap func here
 	http.MethodFunc(http.MethodPost, "path", fn)
 
+	// and here
+	http.MethodFunc(http.MethodPost, "path/{template}", fn)
+
 	// hiding if/else looks ugly, therefore we don't wrap them
 	if true {
 		fmt.Println(5)

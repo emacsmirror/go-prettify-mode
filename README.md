@@ -43,6 +43,10 @@ How the configuration is looked in my `init.el` with `use-package`:
 - [x] change regexps to their own functions that return start point
 - [x] make its own namespace (go-prettify)
 - [x] codeberg
-- [ ] fix 2 cases in test.go
+- [x] fix 2 cases in test.go
+  - [x] if/else
+  - [x] method func
+- [ ] test case with structs 
 - [ ] change : to { } like in Goland
 - [ ] commenting out doesn't work well (should be added a webhook that turns off and then turns on the feature)
+- [ ] sometimes it fails to load go-mode with this thing, need to be debugged
