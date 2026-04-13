@@ -23,6 +23,13 @@
 
 ;;; Commentary:
 
+;; It is a minor mode for Emacs that replaces several Go statements, e.g.:
+;; - if err != nil,
+;; - blocks with 1 code,
+;; - range statement,
+;; - hide types in anonymous functions.
+;; All these make a code shorter and more informative using overlays.
+
 ;;; Code:
 
 
@@ -52,9 +59,8 @@
   "Face of an overlay for `if err != nil' statement."
   :group 'go-prettify-mode)
 
-(make-variable-buffer-local
- (defvar go-prettify--overlays '()
-   "Private local variable, overlays of the buffer."))
+(defvar-local go-prettify--overlays '()
+  "Private local variable, overlays of the buffer.")
 
 (defconst go-prettify--invisible-symbol
   'go-prettify--invisible-symbol
@@ -98,7 +104,7 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
 ;; Hide `if err != nil', `if !ok' and inline them.
 ;;
 
-(defcustom go-prettify--if-err-nil-regexp
+(defcustom go-prettify-if-err-nil-regexp
   (rx
    (or ";" "if")
    " "
@@ -113,7 +119,7 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
   :type 'regexp
   :group 'go-prettify-group)
 
-(defcustom go-prettify--if-err-nil-regexp-alist
+(defcustom go-prettify-if-err-nil-regexp-alist
   '(("^[ \t\n\r]*" "")
     ("if err != nil " "iferr: ")
     ("err != nil " "err: ")
@@ -141,7 +147,7 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
                            (replace-regexp-in-string (cl-first kv) (cl-second kv) line))
-                         go-prettify--if-err-nil-regexp-alist
+                         go-prettify-if-err-nil-regexp-alist
                          :initial-value line))
          (shorten-line (string-limit replaced-line 27)))
     (concat
@@ -165,7 +171,7 @@ The statement is from BEGINNING to END."
 (defun go-prettify--if-err-nil-overlayfn ()
   "Create an overlay and store it for the future use."
   (let* ((beginning (progn
-                      (search-backward-regexp go-prettify--if-err-nil-regexp)
+                      (search-backward-regexp go-prettify-if-err-nil-regexp)
                       (point)))
          (end (progn
                 (end-of-line)
@@ -182,7 +188,7 @@ The statement is from BEGINNING to END."
 (defun go-prettify--if-err-nil ()
   "Hides if err nil blocks."
   (goto-char (point-min))
-  (while (search-forward-regexp go-prettify--if-err-nil-regexp nil t 1)
+  (while (search-forward-regexp go-prettify-if-err-nil-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
       (go-prettify--if-err-nil-overlayfn))))
@@ -192,7 +198,7 @@ The statement is from BEGINNING to END."
 ;; Replace `:= range' to just `in'
 ;;
 
-(defcustom go-prettify--range-regexp
+(defcustom go-prettify-range-regexp
   ":= range"
   "Regexp for finding and hiding `:= range' code."
   :type 'regexp
@@ -202,7 +208,7 @@ The statement is from BEGINNING to END."
   "Find `:= range' and replace it to just `in' like in Python and other languages."
   (let* ((end (point))
          (beginning (progn
-                      (search-backward-regexp go-prettify--range-regexp)
+                      (search-backward-regexp go-prettify-range-regexp)
                       (point))))
     (end-of-line)
     (setq go-prettify--overlays
@@ -214,7 +220,7 @@ The statement is from BEGINNING to END."
 (defun go-prettify--range ()
   "Hide := range expression."
   (goto-char (point-min))
-  (while (search-forward-regexp go-prettify--range-regexp nil t 1)
+  (while (search-forward-regexp go-prettify-range-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
       (go-prettify--range-overlayfn))))
@@ -224,7 +230,7 @@ The statement is from BEGINNING to END."
 ;; Hide all blocks of code with only 1 statement
 ;;
 
-(defcustom go-prettify--simple-block-regexp
+(defcustom go-prettify-simple-block-regexp
   (rx (* not-newline)
       " {\n"
       (* (not (any "\n{}")))
@@ -294,7 +300,7 @@ The point should be on the closed brace {."
   "Create an overlay and store it for the future use.
 Do not hide it if the first line is too long."
   (let* ((beginning (progn
-                      (search-backward-regexp go-prettify--simple-block-regexp)
+                      (search-backward-regexp go-prettify-simple-block-regexp)
                       (end-of-line)
                       (backward-char 2) ;; open { and space before it
                       (point)))
@@ -319,7 +325,7 @@ Do not hide it if the first line is too long."
 (defun go-prettify--simple-block ()
   "Hide 1-statement blocks."
   (goto-char (point-min))
-  (while (search-forward-regexp go-prettify--simple-block-regexp nil t 1)
+  (while (search-forward-regexp go-prettify-simple-block-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
       (go-prettify--simple-block-overlayfn))))
@@ -329,7 +335,7 @@ Do not hide it if the first line is too long."
 ;; lambdas
 ;;
 
-(defcustom go-prettify--lambda-regexp
+(defcustom go-prettify-lambda-regexp
   (rx (any " \t")
       "func(")
   "A variable of regexp that represents a lambda (anonymous function) in Go code."
@@ -361,7 +367,7 @@ The function begins at BEGINNING."
 (defun go-prettify--lambda-overlayfn ()
   "Create an overlay and store it for the future use."
   (let* ((beginning (progn
-                      (search-backward-regexp go-prettify--lambda-regexp)
+                      (search-backward-regexp go-prettify-lambda-regexp)
                       (forward-char)
                       (point)))
          (end (progn (search-forward "{")
@@ -377,7 +383,7 @@ The function begins at BEGINNING."
 (defun go-prettify--lambda ()
   "Hide arguments of anonymous functions."
   (goto-char (point-min))
-  (while (search-forward-regexp go-prettify--lambda-regexp nil t 1)
+  (while (search-forward-regexp go-prettify-lambda-regexp nil t 1)
     (if (string-search "//" (thing-at-point 'line 'no-properties))
         (end-of-line)
       (go-prettify--lambda-overlayfn))))
