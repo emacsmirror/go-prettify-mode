@@ -1,11 +1,9 @@
 ;;; go-prettify-mode.el --- Hide `if err != nil' and prettify them -*- lexical-binding: t -*-
 
-;;; Commentary:
-
 ;; Author: Gleb Zakharov <snyssfx@posteo.net>
 ;; Version: 1.0
 ;; Keywords: languages go tools
-;; Package-Requires: ((Emacs "28.1"))
+;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://codeberg.org/snyssfx/go-prettify-mode.el
 
 ;;; Copyright © 2026 Gleb Zakharov <snyssfx@posteo.net>
@@ -23,6 +21,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
 ;;; Code:
 
 
@@ -31,6 +31,7 @@
 ;;
 
 (require 'rx)
+(require 'cl-lib)
 
 (defgroup go-prettify-group nil
   "Hide `if err != nil' and other statements in Go programs."
@@ -139,7 +140,7 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
   "Apply all regexp to replacements from alist to the LINE."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
-                           (replace-regexp-in-string (first kv) (second kv) line))
+                           (replace-regexp-in-string (cl-first kv) (cl-second kv) line))
                          go-prettify--if-err-nil-regexp-alist
                          :initial-value line))
          (shorten-line (string-limit replaced-line 27)))
@@ -261,7 +262,7 @@ The statement is from BEGINNING to END."
 Shorten it if the first line is too long."
   (let* ((replaced-line (cl-reduce
                          (lambda (line kv)
-                           (replace-regexp-in-string (first kv) (second kv) line))
+                           (replace-regexp-in-string (cl-first kv) (cl-second kv) line))
                          go-prettify-simple-block-regexp-alist
                          :initial-value line))
          (shorten-line (string-limit replaced-line 70)))
