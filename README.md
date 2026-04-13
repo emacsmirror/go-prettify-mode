@@ -47,7 +47,8 @@ How the configuration is looked in my `init.el` with `use-package`:
   - [x] if/else
   - [x] method func
 - MELPA
-- [ ] test case with structs 
+- [ ] test case with structs
 - [ ] change : to { } like in Goland
+  - that should be done with 2 overlays that hide new lines, so the syntax is still highlighted
 - [ ] commenting out doesn't work well (should be added a webhook that turns off and then turns on the feature)
 - [ ] sometimes it fails to load go-mode with this thing, need to be debugged
