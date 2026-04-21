@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"sort"
 )
+
+type fn2 func(ctx context.Context, a int) (b int, err error)
 
 func fn() error { return errors.New("abc") }
 
@@ -37,7 +40,7 @@ func testFunc() error {
 		return fmt.Errorf("wraps to the same line, err: %w", err)
 	}
 
-	if err != nil && a == 10 {
+	if eror != nil && a == 10 {
 		log.Fatal("1-statement blocks are hidden also")
 	}
 
@@ -51,7 +54,7 @@ func testFunc() error {
 
 	// `:= range` replaces to just `in`. Simple blocks are also hidden.
 	for _, i := range []uint{4, 2} {
-		b = append(b, i)
+		continue
 	}
 
 	if true {

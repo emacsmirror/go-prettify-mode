@@ -47,15 +47,16 @@
 
 (defcustom go-prettify-feature-list
   '(lambda-func
-    range
+    ;; range
     if-err-nil
     1-code-block)
-  "What features turn on in the package."
-  :type '(list string)
+  "What features (as symbols) turn on in the package.
+Possible values are: lambda-func, range, if-err-nil, 1-code-block"
+  :type '(list symbol)
   :group 'go-prettify-mode)
 
 (defface go-prettify-face
-  '((t :inherit font-lock-comment-face))
+  '((t :inherit font-lock-type-face))
   "Face of an overlay for `if err != nil' statement."
   :group 'go-prettify-mode)
 
@@ -110,10 +111,11 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
    " "
    (or "err != nil" "!ok")
    " {\n"
+   ;; then what's inside of the block
    (zero-or-more (not (any "\n{}")))
    "\n"
-   (one-or-more (any "\t "))
-   "}")
+   ;; the closing brace
+   (one-or-more (any "\t ")) "}")
 
   "A variable of what regexp should be hidden in Go code."
   :type 'regexp
@@ -156,7 +158,8 @@ with a text REPLACE-TO-STR and store it to the overlay dict"
      (unless (or
               (string-match-p "err != nil" line)
               (string-match-p "!ok" line)
-              (string-empty-p replaced-line)) "; "))))
+              (string-empty-p replaced-line))
+       "; "))))
 
 (defun go-prettify--if-err-nil-transform-block (beginning end)
   "Yields a line that should be displayed instead of `if err' statement.
@@ -170,20 +173,30 @@ The statement is from BEGINNING to END."
 
 (defun go-prettify--if-err-nil-overlayfn ()
   "Create an overlay and store it for the future use."
-  (let* ((beginning (progn
-                      (search-backward-regexp go-prettify-if-err-nil-regexp)
-                      (point)))
-         (end (progn
-                (end-of-line)
-                (backward-char)
-                (forward-sexp)
-                (point))))
+  (let* ((open-beg (progn
+                     (search-backward-regexp go-prettify-if-err-nil-regexp)
+                     (search-forward "{" nil nil 1)
+                     (backward-char 1)
+                     (point)))
+
+         (open-end (progn (forward-char 1)
+                          (search-forward-regexp "[^ \t\n\r]" nil nil 1)
+                          (backward-char 1)
+                          (point)))
+
+         (close-end (progn (search-forward "}" nil nil 1)
+                           (point)))
+
+         (close-beg (progn (backward-char 1)
+                           (search-backward-regexp "[^ \t\n\r]" nil nil 1)
+                           (forward-char 1)
+                           (point))))
+
     (setq go-prettify--overlays
-          (cons
-           (go-prettify--get-or-make-overlay
-            beginning end
-            (go-prettify--if-err-nil-transform-block beginning end))
-           go-prettify--overlays))))
+          (cons (go-prettify--get-or-make-overlay open-beg open-end "{ ")
+                ;; (go-prettify--if-err-nil-transform-block beginning end)
+                (cons (go-prettify--get-or-make-overlay close-beg close-end " }")
+                      go-prettify--overlays)))))
 
 (defun go-prettify--if-err-nil ()
   "Hides if err nil blocks."
@@ -299,28 +312,66 @@ The point should be on the closed brace {."
 (defun go-prettify--simple-block-overlayfn ()
   "Create an overlay and store it for the future use.
 Do not hide it if the first line is too long."
-  (let* ((beginning (progn
-                      (search-backward-regexp go-prettify-simple-block-regexp)
-                      (end-of-line)
-                      (backward-char 2) ;; open { and space before it
-                      (point)))
+  (let* ((open-beg (progn
+                     (search-backward-regexp go-prettify-simple-block-regexp)
+                     (search-forward "{" nil nil 1)
+                     (backward-char 1)
+                     (point)))
+
          (line-length (- (line-end-position) (line-beginning-position)))
 
          (else-before-p (go-prettify--simple-block-else-before-p))
 
-         (end (progn (forward-sexp)
-                     (point)))
-         (else-after-p (go-prettify--simple-block-else-after-p)))
+         (open-end (progn (forward-char 1)
+                          (search-forward-regexp "[^ \t\n\r]" nil nil 1)
+                          (backward-char 1)
+                          (point)))
+
+         (close-end (progn (search-forward "}" nil nil 1)
+                           (point)))
+
+         (else-after-p (go-prettify--simple-block-else-after-p))
+
+         (close-beg (progn (backward-char 1)
+                           (search-backward-regexp "[^ \t\n\r]" nil nil 1)
+                           (forward-char 1)
+                           (point))))
 
     (when (and (< line-length 50)
                (not else-before-p)
                (not else-after-p))
       (setq go-prettify--overlays
             (cons
-             (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
-              beginning end
-              (go-prettify--simple-block-transform-block beginning end))
-             go-prettify--overlays)))))
+             (go-prettify--get-or-make-overlay open-beg open-end "{ ")
+             (cons
+              (go-prettify--get-or-make-overlay close-beg close-end " }")
+              go-prettify--overlays))))
+    ;; (let* (
+
+
+    ;;        (beginning (progn
+    ;;                     (search-backward-regexp go-prettify-simple-block-regexp)
+    ;;                     (end-of-line)
+    ;;                     (backward-char 2) ;; open { and space before it
+    ;;                     (point)))
+    ;;        (line-length (- (line-end-position) (line-beginning-position)))
+
+    ;;        (else-before-p (go-prettify--simple-block-else-before-p))
+
+    ;;        (end (progn (forward-sexp)
+    ;;                    (point)))
+    ;;        (else-after-p (go-prettify--simple-block-else-after-p)))
+
+    ;;   (when (and (< line-length 50)
+    ;;              (not else-before-p)
+    ;;              (not else-after-p))
+    ;;     (setq go-prettify--overlays
+    ;;           (cons
+    ;;            (go-prettify--get-or-make-overlay ;; if err != nil overlay can already exist
+    ;;             beginning end
+    ;;             (go-prettify--simple-block-transform-block beginning end))
+    ;;            go-prettify--overlays)))
+    ))
 
 (defun go-prettify--simple-block ()
   "Hide 1-statement blocks."
@@ -336,8 +387,14 @@ Do not hide it if the first line is too long."
 ;;
 
 (defcustom go-prettify-lambda-regexp
-  (rx (any " \t")
-      "func(")
+  (rx (any " \t") ;; spaces means it's not a top-level func
+      "func("
+      (minimal-match (zero-or-more (not (any "()"))))
+      ") "
+      (optional (or
+                 (seq "(" (minimal-match (zero-or-more anychar)) ")")
+                 (one-or-more (not (any "()\n")))))
+      " {")
   "A variable of regexp that represents a lambda (anonymous function) in Go code."
   :type 'regexp
   :group 'go-prettify-group)
