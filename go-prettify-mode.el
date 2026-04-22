@@ -56,7 +56,7 @@ Possible values are: lambda-func, range, if-err-nil, 1-code-block"
   :group 'go-prettify-mode)
 
 (defface go-prettify-face
-  '((t :inherit font-lock-type-face))
+  '((t :inherit font-lock-comment-face))
   "Face of an overlay for `if err != nil' statement."
   :group 'go-prettify-mode)
 
