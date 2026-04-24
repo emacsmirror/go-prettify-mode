@@ -78,6 +78,10 @@ dotspacemacs-additional-packages
 - [x] refresh picture
 - [x] refresh readme
 
+## Contribution
+Any code refactoring, new features and issues, bug fixes and bug reports are welcome.
+Check out test.go file to see all test cases we currently have.
+
 ## Things to check before commit
 - melpazoid
 ```bash

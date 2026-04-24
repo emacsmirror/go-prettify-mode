@@ -12,6 +12,13 @@ type fn2 func(ctx context.Context, a int) (b int, err error)
 
 func fn() error { return errors.New("abc") }
 
+func (i int) SuperFunc() int {
+	// lambda and then 1-code-block should be combined here
+	idx := func(status int) int {
+		return slices.Index(slice, status)
+	}
+}
+
 var (
 	a = 9
 	b = []uint{}
