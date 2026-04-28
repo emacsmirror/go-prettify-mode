@@ -19,6 +19,11 @@ func (i int) SuperFunc() int {
 	}
 }
 
+// Should not eat the next func
+type SuperFn func(ctx context.Context, a int) (b int, err error)
+
+func (p *Struct) TestFn(ctx context.Context) (int, error) {}
+
 var (
 	a = 9
 	b = []uint{}
