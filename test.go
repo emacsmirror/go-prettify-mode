@@ -14,7 +14,7 @@ func fn() error { return errors.New("abc") }
 
 func (i int) SuperFunc() int {
 	// lambda and then 1-code-block should be combined here
-	idx := func(status int) int {
+	idx := func(status int) (int, error) {
 		return slices.Index(slice, status)
 	}
 }
