@@ -8,7 +8,7 @@ import (
 	"sort"
 )
 
-// don't eat the result of topmost func
+// don't hide func here
 func lastParamIsFunc(ctx context.Context, fn func(ctx context.Context) (int, error)) (result int, err error) {
 }
 

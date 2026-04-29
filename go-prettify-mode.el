@@ -63,10 +63,6 @@ Possible values are: lambda-func, range, if-err-nil, 1-code-block"
 (defvar-local go-prettify--overlays '()
   "Private local variable, overlays of the buffer.")
 
-(defconst go-prettify--invisible-symbol
-  'go-prettify--invisible-symbol
-  "Symbol to add in invisible property of overlays.")
-
 (defun go-prettify--make-overlay (beginning end replace-to-str)
   "Create overlay with all properties between BEGINNING and END.
 Transforms it to the string REPLACE-TO-STR."
@@ -75,12 +71,10 @@ Transforms it to the string REPLACE-TO-STR."
      0 (length replace-to-str)
      'face 'go-prettify-face
      replace-to-str)
-    (overlay-put overlay
-                 'invisible
-                 go-prettify--invisible-symbol)
-    (overlay-put overlay
-                 'after-string
-                 replace-to-str)
+    (overlay-put overlay 'display replace-to-str)
+    ;; (overlay-put overlay 'invisible go-prettify--invisible-symbol)
+    ;; (overlay-put overlay 'after-string replace-to-str)
+    (overlay-put overlay 'go-prettify t)
     (overlay-put overlay 'evaporate t)
     ;; (overlay-put overlay 'isearch-open-invisible-temporary t)
     ;; (overlay-put overlay 'isearch-open-invisible t)
@@ -92,9 +86,7 @@ Else makes an overlay from BEGINNING to END,
 with a text REPLACE-TO-STR and store it to the overlay dict"
   (let* ((ov
           (cl-find-if
-           (lambda (ov) (eq
-                         go-prettify--invisible-symbol
-                         (overlay-get ov 'invisible)))
+           (lambda (ov) (overlay-get ov 'go-prettify))
            (overlays-at beginning))))
     (or ov
         (go-prettify--make-overlay
@@ -392,7 +384,7 @@ Do not hide it if the first line is too long."
       (minimal-match (zero-or-more (not (any "()"))))
       ") "
       (optional (or
-                 (seq "(" (minimal-match (zero-or-more anychar)) ")")
+                 (seq "(" (minimal-match (zero-or-more (not (any "()")))) ")")
                  (one-or-more (not (any "()\n")))))
       " {")
   "A variable of regexp that represents a lambda (anonymous function) in Go code."
@@ -453,14 +445,10 @@ The function begins at BEGINNING."
 (defun go-prettify-turn-on (buffer)
   "Search for every selected feature in the BUFFER and create overlays for them."
   (interactive (list (current-buffer)))
-  (add-to-invisibility-spec go-prettify--invisible-symbol)
   (save-excursion
     (with-current-buffer buffer
       (save-restriction
         (widen)
-
-        (when (member 'lambda-func go-prettify-feature-list)
-          (go-prettify--lambda))
 
         (when (member 'if-err-nil go-prettify-feature-list)
           (go-prettify--if-err-nil))
@@ -468,13 +456,15 @@ The function begins at BEGINNING."
         (when (member '1-code-block go-prettify-feature-list)
           (go-prettify--simple-block))
 
+        (when (member 'lambda-func go-prettify-feature-list)
+          (go-prettify--lambda))
+
         (when (member 'range go-prettify-feature-list)
           (go-prettify--range))))))
 
 (defun go-prettify-turn-off ()
   "Remove old overlays from the buffer."
   (interactive)
-  (remove-from-invisibility-spec go-prettify--invisible-symbol)
   (mapc #'delete-overlay go-prettify--overlays)
   (setq go-prettify--overlays nil))
 
