@@ -60,6 +60,10 @@ func testFunc() error {
 		log.Fatal("1-statement blocks are hidden also")
 	}
 
+	if eror != nil && a == 10 {
+		log.Fatal("but too long statements are not hidden, or they are look too ugly")
+	}
+
 	if err != nil && a == 10 {
 		log.Fatal("2-statement blocks are not hidden")
 		log.Fatal("complex logic")
