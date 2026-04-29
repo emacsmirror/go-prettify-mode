@@ -8,6 +8,10 @@ import (
 	"sort"
 )
 
+// don't eat the result of topmost func
+func lastParamIsFunc(ctx context.Context, fn func(ctx context.Context) (int, error)) (result int, err error) {
+}
+
 type fn2 func(ctx context.Context, a int) (b int, err error)
 
 func fn() error { return errors.New("abc") }
